@@ -1,4 +1,4 @@
-const SIZE = 10 * 1024 * 1024; // 切片大小10M
+const SIZE = 2 * 1024 * 1024; // 切片大小2M
 
 //file切片
 function createFileChunk(file, size = SIZE) {
