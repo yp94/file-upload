@@ -174,7 +174,6 @@ class App extends React.Component {
                           className="btn"
                           onClick={(e) => this.uploadStatusChange(e,index)}
                           disabled={!it.progress}
-                          // style={{display: it.progress ? '':'none'}}
                         >{it.pause ? '继续':'暂停'}</button>
                         <button
                           onClick={(e) => this.cancel(e,index)}

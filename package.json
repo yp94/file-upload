@@ -1,21 +1,25 @@
 {
   "name": "upload",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "大文件分片断点上传",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yp94/file-upload.git"
+  },
+  "scripts": {
+    "start": "react-scripts start"
+  },
   "dependencies": {
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",
     "@testing-library/user-event": "^7.1.2",
+    "fs-extra": "^9.0.0",
+    "lodash": "^4.17.15",
+    "multiparty": "^4.2.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-scripts": "3.4.1",
     "spark-md5": "^3.0.1"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": "react-app"

@@ -1,4 +1,6 @@
 import {formatStatus} from './tools'
+import _ from 'lodash'
+
 //文件状态记录
 const fileStatusList = {}
 
@@ -27,7 +29,8 @@ function request({
 //计算百分比
 function calcProgress(hash) {
   let loadedTotal = fileStatusList[hash].loaded.map(it => it.loaded).reduce((pre, curr) => pre+curr)
-  let total = fileStatusList[hash].loaded.map(it => it.total).reduce((pre, curr) => pre+curr)
+  // let total = fileStatusList[hash].loaded.map(it => it.total).reduce((pre, curr) => pre+curr)
+  const total = fileStatusList[hash].size
   let progress
   //如果是其中一部分已经发过了
   if (fileStatusList[hash].initProgress) {
@@ -42,22 +45,17 @@ function calcProgress(hash) {
 //如果文件已存在，则返回true
 //如果已经有一部分了，返回已有部分的index
 async function checkUploaded(url, dataList) {
-  if (dataList[0] && dataList[0].hash) {
-    dataList = [dataList]
-  }
-
   const data = dataList.map(file => {
       return {
-        name: file[0].fileName,
-        hash: file[0].hash
+        fileName: file.name,
+        hash: file.hash
       }
     })
 
   const uploadedChunk = await new Promise(resolve => {
     request({
       url:`${url}/check`,
-      method:'get',
-      data:data,
+      data:JSON.stringify(data),
       onProgress:null,
       success:(res) => {
         resolve(res)
@@ -70,30 +68,71 @@ async function checkUploaded(url, dataList) {
 
 //过滤服务器已存在的内容并记录
 async function filterDataList(uploadedChunk,dataList,onProgressChange) {
+  //需要深拷贝一份
+  const filteredDataList = _.cloneDeep(dataList)
+
   for (let i = 0; i < dataList.length; i++) {
     const hash = dataList[i].hash
     if (uploadedChunk[hash]) {
       //文件已存在
       if (uploadedChunk[hash] === true) {
         dataList[i].done = true
+        filteredDataList[i] = null
         //显示极速秒传
         fileStatusList[hash].status = formatStatus(7)
       //部分chunk已存在
       } else if (Array.isArray(uploadedChunk[hash])) {
-        const unUploadChunks = dataList[i].chunks.filter((it,index) => !uploadedChunk[hash].includes(index))
+        const uploadedSize = uploadedChunk[hash].pop()
+        const unUploadChunks = dataList[i].chunks.filter((it) => !uploadedChunk[hash].includes(`${it.index}`))
         //把需要传输的chunk放入fileStatusList
         fileStatusList[hash].chunks = unUploadChunks
+        fileStatusList[hash].size = dataList[i].size - uploadedSize
+        //放入filteredDataList，进入下一流程
+        filteredDataList[i].chunks = unUploadChunks
         //显示已传的占比
-        const progress = parseInt((unUploadChunks.length / dataList[i].total) * 100)
+        const progress = parseInt((uploadedSize / dataList[i].size) * 100)
+
         fileStatusList[hash].progress = fileStatusList[hash].initProgress = progress
       }
     }
   }
   onProgressChange(fileStatusList)
-  return dataList.filter(item => !item.done)
+  return filteredDataList.filter(it => it)
 }
 
 function uploadChunk(url,files,onProgressChange) {
+  //封装formData
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    fileStatusList[file.hash].status = formatStatus(3)
+    file.chunks.forEach(chunk => {
+      const formData = new FormData();
+      formData.append("chunk", chunk.fileChunk);
+      formData.append("hash", chunk.chunkHash);
+      formData.append("index", chunk.index);
+      formData.append("fileName", file.name);
+      formData.append("fileHash", file.hash);
+      formData.append('total', file.total);
+
+      const xhr = request({
+        url:`${url}/upload`,
+        data:formData,
+        onProgress: onProgress(file.hash,chunk.index),
+        success: () => {
+          const requestList = fileStatusList[file.hash].requestList
+          requestList[chunk.index] = null
+          if (requestList.filter(it => it).length === 0) {
+            fileStatusList[file.hash].status = formatStatus(5)
+            fileStatusList[file.hash].progress = null
+            onProgressChange(fileStatusList)
+          }
+        }
+      })
+      //保存xhr对象
+      fileStatusList[file.hash].requestList[chunk.index] = xhr
+    })
+  }
+
   function onProgress(hash,index) {
     return e => {
       fileStatusList[hash].loaded[index] = {
@@ -105,39 +144,6 @@ function uploadChunk(url,files,onProgressChange) {
       //通知前端
       onProgressChange(fileStatusList)
     }
-  }
-  //封装formData
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    fileStatusList[file.hash].status = formatStatus(3)
-    file.chunks.forEach(chunk => {
-      const formData = new FormData();
-      formData.append("chunk", chunk.fileChunk);
-      formData.append("hash", chunk.chunkHash);
-      formData.append("index", chunk.index);
-      formData.append("filename", file.name);
-      formData.append("fileHash", file.hash);
-      formData.append('total', file.total)
-
-      const xhr = request({
-        url:`${url}/upload`,
-        data:formData,
-        onProgress: onProgress(file.hash,chunk.index),
-        success: () => {
-          const requestList = fileStatusList[file.hash].requestList
-          requestList[chunk.index] = null
-          if (requestList.filter(it => it).length === 0) {
-            // debugger
-            console.log(fileStatusList)
-            fileStatusList[file.hash].status = formatStatus(5)
-            fileStatusList[file.hash].progress = null
-            onProgressChange(fileStatusList)
-          }
-        }
-      })
-      //保存xhr对象
-      fileStatusList[file.hash].requestList[chunk.index] = xhr
-    })
   }
 }
 
@@ -154,6 +160,7 @@ function onCancel(target) {
   }
 }
 
+//继续上传
 async function onContinue(target) {
   const targetFileStatus = fileStatusList[target.hash]
   targetFileStatus.requestList = []
@@ -164,6 +171,7 @@ async function onContinue(target) {
   const uploadedChunk = await checkUploaded(url,[target.data])
   //过滤掉已传输的chunk
   const filteredDataList = await filterDataList(uploadedChunk,[target.data],fileStatusList.onProgressChange)
+
   uploadChunk(url, filteredDataList, fileStatusList.onProgressChange)
 }
 
@@ -187,7 +195,8 @@ async function sendData({url, dataList, onProgressChange}) {
       loaded:[],
       requestList:[],
       url: url,
-      status: formatStatus(2)
+      status: formatStatus(2),
+      size: file.size
     }
   })
 
