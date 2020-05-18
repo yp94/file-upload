@@ -1,8 +1,9 @@
-## 大体积文件上传 + 断点续传
+#
+大体积文件上传 + 断点续传
 
 该项目来源于公司内部产品需求，前端基于React，后端使用Node.js处理文件。可以批量上传任意格式的文件，并实现了上传进度展示，断点续传，暂停，取消，极速秒传的功能
 
-### 功能列表
+## 功能列表
 
 - [x] 进度显示
 - [x] 断点续传
@@ -11,22 +12,29 @@
 - [x] 取消上传
 - [ ] 上传优先级
 
-### 预览
+## 预览
+批量上传
+![image1](https://github.com/yp94/file-upload/blob/master/image/1.gif)
 
+极速秒传
+![image2](https://github.com/yp94/file-upload/blob/master/image/2.gif)
 
-### 技术概览
-#### 前端
+断点续传
+![image3](https://github.com/yp94/file-upload/blob/master/image/3.gif)
+
+## 技术概览
+### 前端
 * React渲染页面
 * Blob#slice 实现文件切片
 * spark-md5 + web-worker 生成文件hash
 * xhr 发送 formdata
 
-#### 后端
+### 后端
 * Node.js搭建http服务器
 * multiparty 处理 formData
 * fs-extra 操作读写
 
-### 开始
+## 开始
 ```
 npm install
 ```
@@ -40,3 +48,4 @@ npm run start
 cd server/
 node index.js
 ```
+上传的文件位于项目根目录target文件夹
