@@ -18,7 +18,7 @@
     "multiparty": "^4.2.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
-    "react-scripts": "3.4.1",
+    "react-scripts": "5.0.1",
     "spark-md5": "^3.0.1"
   },
   "eslintConfig": {
